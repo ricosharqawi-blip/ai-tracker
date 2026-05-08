@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Infra Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c10;
+    --surface: #0d1117;
+    --border: #1a2332;
+    --accent: #00d4ff;
+    --accent2: #7c3aed;
+    --green: #00ff87;
+    --red: #ff4466;
+    --gold: #ffd700;
+    --text: #e2e8f0;
+    --muted: #4a6080;
+    --card: #0a1520;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    background-image: 
+      radial-gradient(ellipse at 20% 20%, rgba(0, 212, 255, 0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(124, 58, 237, 0.04) 0%, transparent 50%);
+  }
+
+  .grid-bg {
+    position: fixed;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 32px;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .brand-name { font-size: 11px; font-family: 'Space Mono', monospace; color: var(--accent); letter-spacing: 3px; text-transform: uppercase; }
+  .brand-title { font-size: 28px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; }
+  .brand-title span { color: var(--accent); }
+
+  .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .clock { font-family: 'Space Mono', monospace; font-size: 24px; color: var(--text); letter-spacing: 2px; }
+  .date { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 1px; }
+
+  .refresh-btn {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    font-family: 'Space Mono', monospace; font-size: 10px; padding: 4px 12px;
+    cursor: pointer; border-radius: 4px; letter-spacing: 1px; transition: all 0.2s;
+  }
+  .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .market-status { display: flex; align-items: center; gap: 6px; font-size: 10px; font-family: 'Space Mono', monospace; }
+  .market-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .market-dot.open { background: var(--green); box-shadow: 0 0 8px var(--green); animation: blink 2s infinite; }
+  .market-dot.closed { background: var(--red); }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .summary-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+  .summary-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px 20px; position: relative; overflow: hidden;
+  }
+  .summary-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+  .summary-label { font-size: 10px; font-family: 'Space Mono', monospace; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+  .summary-value { font-size: 22px; font-weight: 800; color: var(--text); }
+  .summary-sub { font-size: 11px; font-family: 'Space Mono', monospace; color: var(--muted); margin-top: 4px; }
+
+  .sections { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+  .section { background: var(--card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .section-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 20px; border-bottom: 1px solid var(--border); background: rgba(0, 212, 255, 0.02);
+  }
+  .section-title { font-size: 10px; font-family: 'Space Mono', monospace; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; }
+  .section-badge { font-size: 9px; font-family: 'Space Mono', monospace; color: var(--muted); background: var(--border); padding: 2px 8px; border-radius: 10px; }
+
+  .ticker-row {
+    display: grid; grid-template-columns: 65px 1fr 90px 90px 80px;
+    align-items: center; padding: 12px 20px;
+    border-bottom: 1px solid rgba(26, 35, 50, 0.5); transition: background 0.15s; gap: 12px;
+  }
+  .ticker-row:last-child { border-bottom: none; }
+  .ticker-row:hover { background: rgba(0, 212, 255, 0.03); }
+
+  .ticker-symbol { font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700; color: var(--text); }
+  .ticker-name { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ticker-price { font-family: 'Space Mono', monospace; font-size: 13px; color: var(--text); text-align: right; }
+  .ticker-change { font-family: 'Space Mono', monospace; font-size: 12px; text-align: right; font-weight: 700; }
+  .ticker-change.pos { color: var(--green); }
+  .ticker-change.neg { color: var(--red); }
+  .ticker-signal { font-size: 9px; font-family: 'Space Mono', monospace; text-align: right; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+  .signal-strong-buy { background: rgba(0,255,135,0.1); color: var(--green); border: 1px solid rgba(0,255,135,0.2); }
+  .signal-buy { background: rgba(0,212,255,0.1); color: var(--accent); border: 1px solid rgba(0,212,255,0.2); }
+  .signal-hold { background: rgba(255,215,0,0.1); color: var(--gold); border: 1px solid rgba(255,215,0,0.2); }
+  .owned-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 4px; vertical-align: middle; box-shadow: 0 0 6px var(--accent); }
+
+  .bottom-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+
+  .action-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 20px; border-bottom: 1px solid rgba(26,35,50,0.5); }
+  .action-item:last-child { border-bottom: none; }
+  .action-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  .action-dot.urgent { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .action-dot.soon { background: var(--gold); box-shadow: 0 0 6px var(--gold); }
+  .action-dot.done { background: var(--green); }
+  .action-text { font-size: 11px; color: var(--text); line-height: 1.4; }
+  .action-date { font-size: 10px; font-family: 'Space Mono', monospace; color: var(--muted); margin-top: 2px; }
+
+  .tranche-item { padding: 12px 20px; border-bottom: 1px solid rgba(26,35,50,0.5); }
+  .tranche-item:last-child { border-bottom: none; }
+  .tranche-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .tranche-label { font-size: 11px; font-family: 'Space Mono', monospace; color: var(--text); }
+  .tranche-amount { font-size: 11px; font-family: 'Space Mono', monospace; color: var(--accent); }
+  .tranche-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .tranche-fill { height: 100%; border-radius: 2px; }
+  .fill-done { background: var(--green); width: 100%; }
+  .fill-next { background: var(--accent); width: 15%; }
+  .fill-pending { background: var(--muted); width: 0%; }
+  .tranche-status { font-size: 9px; font-family: 'Space Mono', monospace; color: var(--muted); margin-top: 4px; }
+
+  .quick-links { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 20px; }
+  .quick-link {
+    font-size: 10px; font-family: 'Space Mono', monospace; color: var(--muted);
+    text-decoration: none; border: 1px solid var(--border); padding: 4px 12px;
+    border-radius: 4px; transition: all 0.2s; letter-spacing: 1px;
+  }
+  .quick-link:hover { color: var(--accent); border-color: var(--accent); background: rgba(0,212,255,0.05); }
+
+  .loading { color: var(--muted); font-family: 'Space Mono', monospace; font-size: 11px; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .error-msg { color: var(--red); font-family: 'Space Mono', monospace; font-size: 10px; padding: 8px 20px; }
+
+  .last-updated { font-size: 9px; font-family: 'Space Mono', monospace; color: var(--muted); padding: 8px 20px; border-top: 1px solid var(--border); }
+
+  .fade-in { animation: fadeIn 0.4s ease forwards; opacity: 0; }
+  @keyframes fadeIn { to { opacity: 1; } }
+  .stagger-1 { animation-delay: 0.1s; }
+  .stagger-2 { animation-delay: 0.2s; }
+  .stagger-3 { animation-delay: 0.3s; }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="container">
+
+  <header class="fade-in">
+    <div>
+      <div class="brand-name">Riverforge Capital</div>
+      <div class="brand-title">AI Infra <span>Tracker</span></div>
+    </div>
+    <div class="header-right">
+      <div class="clock" id="clock">--:--:--</div>
+      <div class="date" id="date">---</div>
+      <div class="market-status">
+        <div class="market-dot" id="market-dot"></div>
+        <span id="market-status-text" style="color:var(--muted)">checking...</span>
+      </div>
+      <button class="refresh-btn" onclick="fetchAllPrices()">↻ REFRESH</button>
+    </div>
+  </header>
+
+  <div class="summary-bar fade-in stagger-1">
+    <div class="summary-card">
+      <div class="summary-label">Fidelity Total</div>
+      <div class="summary-value">$94.5K</div>
+      <div class="summary-sub">+23.90% all accounts</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">ORCL Position</div>
+      <div class="summary-value" id="orcl-value">loading...</div>
+      <div class="summary-sub">181 shares · +42% return</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Layer 2 AI Infra</div>
+      <div class="summary-value">~$2.1K</div>
+      <div class="summary-sub">CRDO · VRT · MU · OKLO</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">ORCL Unlock</div>
+      <div class="summary-value" style="color:var(--gold)" id="countdown">-- Days</div>
+      <div class="summary-sub">June 1, 2026 (confirm date)</div>
+    </div>
+  </div>
+
+  <div class="sections fade-in stagger-2">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">⬡ Owned Positions</div>
+        <div class="section-badge" id="owned-updated">LIVE PRICES</div>
+      </div>
+      <div id="owned-tickers"><div style="padding:20px;text-align:center" class="loading">fetching prices...</div></div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">◎ Watchlist</div>
+        <div class="section-badge" id="watch-updated">LAYER 2 CANDIDATES</div>
+      </div>
+      <div id="watch-tickers"><div style="padding:20px;text-align:center" class="loading">fetching prices...</div></div>
+    </div>
+  </div>
+
+  <div class="bottom-row fade-in stagger-3">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">▸ Action Items</div>
+        <div class="section-badge">OPEN</div>
+      </div>
+      <div class="action-item">
+        <div class="action-dot urgent"></div>
+        <div><div class="action-text">Add wife as beneficiary — all 3 TOD accounts</div><div class="action-date">CALL 800-343-3548</div></div>
+      </div>
+      <div class="action-item">
+        <div class="action-dot urgent"></div>
+        <div><div class="action-text">Confirm ORCL unlock — June 1 or July 1?</div><div class="action-date">CALL ORACLE HR</div></div>
+      </div>
+      <div class="action-item">
+        <div class="action-dot urgent"></div>
+        <div><div class="action-text">Close Fidelity Crypto 8761242251</div><div class="action-date">CALL 800-343-3548</div></div>
+      </div>
+      <div class="action-item">
+        <div class="action-dot soon"></div>
+        <div><div class="action-text">Confirm FNILX drips execute May 15 + 18</div><div class="action-date">$50 + $25 BIWEEKLY</div></div>
+      </div>
+      <div class="action-item">
+        <div class="action-dot done"></div>
+        <div><div class="action-text">CRDO + VRT purchased ✓</div><div class="action-date">MAY 8 · Z39479762 + Z37282732</div></div>
+      </div>
+      <div class="action-item">
+        <div class="action-dot done"></div>
+        <div><div class="action-text">Robinhood cleanup complete ✓</div><div class="action-date">BTC · ETH · OKLO · PLTR</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">◈ ORCL Rotation</div>
+        <div class="section-badge">4 TRANCHES</div>
+      </div>
+      <div class="tranche-item">
+        <div class="tranche-header"><div class="tranche-label">T1 — Apr 24, 2026</div><div class="tranche-amount">$8,193 → FNILX</div></div>
+        <div class="tranche-bar"><div class="tranche-fill fill-done"></div></div>
+        <div class="tranche-status">✓ COMPLETE</div>
+      </div>
+      <div class="tranche-item">
+        <div class="tranche-header"><div class="tranche-label">T2 — Sep 15, 2026</div><div class="tranche-amount">~$8,000 → AI Infra</div></div>
+        <div class="tranche-bar"><div class="tranche-fill fill-next"></div></div>
+        <div class="tranche-status">NEXT · VRT · CRDO · MU · OKLO</div>
+      </div>
+      <div class="tranche-item">
+        <div class="tranche-header"><div class="tranche-label">T3 — Dec 15, 2026</div><div class="tranche-amount">~$8,000 → GEV + Infra</div></div>
+        <div class="tranche-bar"><div class="tranche-fill fill-pending"></div></div>
+        <div class="tranche-status">PENDING · GEV revisit flagged</div>
+      </div>
+      <div class="tranche-item">
+        <div class="tranche-header"><div class="tranche-label">T4 — Mar 15, 2027</div><div class="tranche-amount">~$8,000 → FNILX + SGOV</div></div>
+        <div class="tranche-bar"><div class="tranche-fill fill-pending"></div></div>
+        <div class="tranche-status">PENDING</div>
+      </div>
+      <div class="tranche-item">
+        <div class="tranche-header"><div class="tranche-label">ORCL Core Hold</div><div class="tranche-amount">~$7,700 retained</div></div>
+        <div class="tranche-bar"><div class="tranche-fill" style="width:100%;background:var(--gold)"></div></div>
+        <div class="tranche-status">PATH B · ~15% of portfolio</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header"><div class="section-title">⟶ Quick Links</div><div class="section-badge">BROKERAGES</div></div>
+      <div class="quick-links">
+        <a href="https://digital.fidelity.com" class="quick-link" target="_blank">FIDELITY</a>
+        <a href="https://robinhood.com" class="quick-link" target="_blank">ROBINHOOD</a>
+        <a href="https://sofi.com/invest" class="quick-link" target="_blank">SOFI</a>
+        <a href="https://dub.co" class="quick-link" target="_blank">DUB</a>
+        <a href="https://finance.yahoo.com" class="quick-link" target="_blank">YAHOO FIN</a>
+        <a href="https://finviz.com" class="quick-link" target="_blank">FINVIZ</a>
+        <a href="https://seekingalpha.com" class="quick-link" target="_blank">SEEKING ALPHA</a>
+        <a href="https://claude.ai" class="quick-link" target="_blank">CLAUDE AI</a>
+        <a href="https://www.cnbc.com/markets/" class="quick-link" target="_blank">CNBC</a>
+        <a href="https://www.wsj.com/markets" class="quick-link" target="_blank">WSJ</a>
+      </div>
+      <div class="section-header"><div class="section-title">◐ Drip Schedule</div></div>
+      <div class="action-item">
+        <div class="action-dot done"></div>
+        <div><div class="action-text">$50 FNILX — X65260037 — Every other Friday</div><div class="action-date">NEXT: MAY 15</div></div>
+      </div>
+      <div class="action-item">
+        <div class="action-dot done"></div>
+        <div><div class="action-text">$25 FNILX — Z37282732 — Every Monday</div><div class="action-date">NEXT: MAY 11</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CLOCK + COUNTDOWN ───────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', second:'2-digit', timeZone:'America/Los_Angeles' });
+  document.getElementById('date').textContent = now.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric', timeZone:'America/Los_Angeles' }).toUpperCase() + ' PDT';
+  
+  // Countdown to June 1
+  const unlock = new Date('2026-06-01T00:00:00-07:00');
+  const days = Math.ceil((unlock - now) / (1000 * 60 * 60 * 24));
+  document.getElementById('countdown').textContent = days > 0 ? days + ' Days' : 'UNLOCKED';
+
+  // Market status
+  const etNow = new Date(now.toLocaleString('en-US', { timeZone:'America/New_York' }));
+  const day = etNow.getDay();
+  const t = etNow.getHours() * 60 + etNow.getMinutes();
+  const isOpen = day >= 1 && day <= 5 && t >= 570 && t < 960;
+  document.getElementById('market-dot').className = 'market-dot ' + (isOpen ? 'open' : 'closed');
+  const st = document.getElementById('market-status-text');
+  st.textContent = isOpen ? 'MARKET OPEN' : 'MARKET CLOSED';
+  st.style.color = isOpen ? 'var(--green)' : 'var(--muted)';
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── TICKERS ─────────────────────────────────────────────
+const OWNED = [
+  { symbol:'ORCL',  name:'Oracle Corp',             signal:'hold',       signalText:'HOLD',    account:'X65260037' },
+  { symbol:'FNILX', name:'Fidelity Zero Large Cap', signal:'strong-buy', signalText:'CORE',    account:'X65260037' },
+  { symbol:'CRDO',  name:'Credo Technology',        signal:'strong-buy', signalText:'STR BUY', account:'Z39479762' },
+  { symbol:'VRT',   name:'Vertiv Holdings',         signal:'strong-buy', signalText:'STR BUY', account:'Z39479762' },
+  { symbol:'MU',    name:'Micron Technology',       signal:'strong-buy', signalText:'STR BUY', account:'Z39479762' },
+  { symbol:'OKLO',  name:'Oklo Inc',                signal:'strong-buy', signalText:'STR BUY', account:'ROBINHOOD' },
+  { symbol:'PLTR',  name:'Palantir Technologies',   signal:'buy',        signalText:'BUY',     account:'ROBINHOOD' },
+  { symbol:'ARKK',  name:'ARK Innovation ETF',      signal:'buy',        signalText:'HOLD',    account:'SOFI' },
+  { symbol:'GOOGL', name:'Alphabet Inc',            signal:'buy',        signalText:'HOLD',    account:'X65260037' },
+  { symbol:'AAPL',  name:'Apple Inc',               signal:'hold',       signalText:'HOLD',    account:'Z37282732' },
+];
+
+const WATCHLIST = [
+  { symbol:'COHR',  name:'Coherent Corp',           signal:'strong-buy', signalText:'STR BUY' },
+  { symbol:'AVGO',  name:'Broadcom Inc',            signal:'strong-buy', signalText:'STR BUY' },
+  { symbol:'CEG',   name:'Constellation Energy',    signal:'buy',        signalText:'BUY'     },
+  { symbol:'GEV',   name:'GE Vernova',              signal:'buy',        signalText:'DEC ADD' },
+  { symbol:'MRVL',  name:'Marvell Technology',      signal:'strong-buy', signalText:'STR BUY' },
+  { symbol:'NVDA',  name:'NVIDIA Corporation',      signal:'strong-buy', signalText:'STR BUY' },
+  { symbol:'TSM',   name:'Taiwan Semiconductor',    signal:'strong-buy', signalText:'STR BUY' },
+  { symbol:'AMD',   name:'Advanced Micro Devices',  signal:'buy',        signalText:'WATCH'   },
+];
+
+// ─── FETCH VIA ALLORIGINS CORS PROXY ────────────────────
+async function fetchPrice(symbol) {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=2d`;
+    const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    const res = await fetch(proxy);
+    const wrapper = await res.json();
+    const data = JSON.parse(wrapper.contents);
+    const meta = data.chart.result[0].meta;
+    const price = meta.regularMarketPrice;
+    const prev = meta.chartPreviousClose;
+    const change = price - prev;
+    const changePct = (change / prev) * 100;
+    return { price, change, changePct };
+  } catch {
+    return null;
+  }
+}
+
+function renderRow(ticker, pd, owned) {
+  const price = pd ? '$' + pd.price.toFixed(2) : '<span style="color:var(--muted)">N/A</span>';
+  const chg = pd ? (pd.change >= 0 ? '+' : '') + pd.changePct.toFixed(2) + '%' : '---';
+  const chgClass = pd ? (pd.change >= 0 ? 'pos' : 'neg') : '';
+  const sigClass = ticker.signal === 'strong-buy' ? 'signal-strong-buy' : ticker.signal === 'buy' ? 'signal-buy' : 'signal-hold';
+  const dot = owned ? '<span class="owned-dot"></span>' : '';
+  const sub = ticker.account ? `<br><span style="font-size:9px;color:var(--accent);opacity:0.6">${ticker.account}</span>` : '';
+  return `<div class="ticker-row">
+    <div class="ticker-symbol">${dot}${ticker.symbol}</div>
+    <div class="ticker-name">${ticker.name}${sub}</div>
+    <div class="ticker-price">${price}</div>
+    <div class="ticker-change ${chgClass}">${chg}</div>
+    <div class="ticker-signal ${sigClass}">${ticker.signalText}</div>
+  </div>`;
+}
+
+async function fetchAllPrices() {
+  document.getElementById('owned-tickers').innerHTML = '<div style="padding:20px;text-align:center" class="loading">fetching prices...</div>';
+  document.getElementById('watch-tickers').innerHTML = '<div style="padding:20px;text-align:center" class="loading">fetching prices...</div>';
+
+  const [ownedResults, watchResults] = await Promise.all([
+    Promise.all(OWNED.map(t => fetchPrice(t.symbol))),
+    Promise.all(WATCHLIST.map(t => fetchPrice(t.symbol)))
+  ]);
+
+  document.getElementById('owned-tickers').innerHTML = OWNED.map((t, i) => renderRow(t, ownedResults[i], true)).join('');
+  document.getElementById('watch-tickers').innerHTML = WATCHLIST.map((t, i) => renderRow(t, watchResults[i], false)).join('');
+
+  // Update ORCL summary
+  if (ownedResults[0]) {
+    const val = (181.094 * ownedResults[0].price).toLocaleString('en-US', { style:'currency', currency:'USD', maximumFractionDigits:0 });
+    document.getElementById('orcl-value').textContent = val;
+  }
+
+  const now = new Date().toLocaleTimeString('en-US', { timeZone:'America/Los_Angeles' });
+  document.getElementById('owned-updated').textContent = 'UPDATED ' + now;
+  document.getElementById('watch-updated').textContent = 'UPDATED ' + now;
+}
+
+fetchAllPrices();
+setInterval(fetchAllPrices, 300000);
+</script>
+</body>
+</html>
